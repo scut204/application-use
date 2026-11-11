@@ -1,111 +1,118 @@
 # application-use
 
-A native, blazingly fast macOS application automation CLI designed specifically for AI agents. 
+Operate an existing macOS application window in the background through
+Accessibility, isolated window screenshots, Apple Vision OCR and directed
+keyboard/mouse events. The background CLI preserves the familiar
+`application-use` commands while keeping the current foreground window and
+physical pointer untouched by its input routes.
 
-Similar to Anthropic's **Computer Use**, `application-use` empowers AI agents to operate desktop applications. However, instead of relying on heavy visual inference and imprecise `(x, y)` coordinate clicks from full-screen screenshots, **application-use** provides a **textual understanding interface built directly on top of underlying macOS native APIs (Accessibility) and Apple Vision Framework**. 
+This fork includes a dedicated background runtime adapted from
+[Open Computer Use](https://github.com/iFurySt/open-computer-use). Source,
+provenance and licenses are in [`background/`](background/PROVENANCE.md).
 
-By operating at the OS level, it retrieves a highly structured view of the UI instantly. This approach achieves superior speed, deterministic accuracy, and significantly better effects for LLMs navigating complex desktop interfaces.
+## Build the background CLI
 
-## Key Features
+Requires macOS 14+, Swift 6.2 (Xcode toolchain), Python 3 and an internet
+connection for the pinned libwebp build dependency. Node.js is only needed for
+fixture-monitor tests. Build on the Mac architecture you intend to use.
 
-- **Native OS APIs**: Uses macOS native Accessibility (`AXUIElement`) for instant, reliable UI tree extraction and precise element interaction.
-- **Vision Integration**: Powered by Apple's built-in Vision framework for robust OCR and screen analysis, easily capturing and interacting with elements that standard APIs miss.
-- **AI-Optimized Interface**: Converts visual spatial information into structured text representations (snapshots with alphabet hints like `JK`). LLMs can instantly map these hints back to specific actions.
-- **Fast & Lightweight**: Built meticulously with Go and Swift (via CGO bridge) for maximum native performance without heavy dependencies.
-
-
-## Installation
-
-### Global Installation (recommended)
-
-Installs the native execution binary directly from NPM:
-
-```bash
-npm install -g application-use@latest
-```
-
-### AI Coding Assistants (recommended)
-
-Add the skill to your AI coding assistant for richer context:
-
-```bash
-npx skills add qdore/application-use
-```
-
-### From Source (macOS)
-
-Dependencies: Go (1.20+) and Xcode Command Line Tools.
-
-```bash
-git clone <repository-url>
+```sh
+git clone https://github.com/scut204/application-use.git
 cd application-use
-
-# Build the Swift static bridge and Go executable
-make clean && make
+make background
+export PATH="$PWD/build/background/scripts:$PATH"
+application-use --help
+application-use doctor
 ```
 
-## Quick Start
+Keep the entire `build/background` directory together if moving the build:
+its `scripts`, `runtime` and `licenses` directories form one installation.
+`doctor` reports permissions without opening settings or requesting access.
+Accessibility and Screen Recording must already be granted to the runtime;
+permission setup is a manual user action.
 
-```bash
-# Search for installed apps
-application-use search "safari"
+The repository also retains its earlier Go/Swift implementation and npm
+packaging. `make` and `npm install -g application-use` refer to that older
+implementation; they do **not** install this background runtime. No npm package
+has been published for this update. See [the legacy CLI](docs/legacy-cli.md).
 
-# Open an application
-application-use open --appName "Safari"
+## Observe, act, verify
 
-# Take a structural snapshot (returns an annotated accessibility tree for AI)
-application-use snapshot --appName "Safari"
+Start with an app that is already running, visible and not minimized. `open`
+binds that app; it does not launch or activate it.
 
-# Click an element by its hint letters (e.g., 'JK' returned from the snapshot)
-application-use click JK --appName "Safari"
-
-# Fill text into an element
-application-use fill JK "hello world" --appName "Safari"
-
-# Send keystrokes directly
-application-use sendkey cmd+t --appName "Safari"
-
-# Take a screenshot
-application-use screenshot result.png --appName "Safari"
-
-# Close the application
-application-use close --appName "Safari"
+```sh
+application-use search TextEdit
+application-use snapshot --appName TextEdit
+# Use hints from the returned snapshot:
+application-use click A --appName TextEdit
+application-use fill B "hello" --appName TextEdit
+application-use sendkey Return --appName TextEdit
+application-use scroll C down 300 --appName TextEdit
+application-use screenshot /absolute/new-window.png --appName TextEdit
+application-use session-stop
 ```
 
-## Core Commands
+The returned hints identify `AX` controls, visible `OCR` text or locally detected
+`ICON` regions. Hints expire after two minutes and are checked against the same
+process, window and control before input. `fill` inserts text at the insertion
+point using directed keyboard events; it does not replace an entire field or
+paste through the clipboard. Inspect each returned state to verify the result.
 
-```bash
-application-use open --appName <app>                  # Open a specific application
-application-use snapshot --appName <app>              # Snapshot the UI tree & overlay alphabet hints on interactive elements
-application-use click <hint> --appName <app>          # Click element by hint (e.g. 'JK'). Supports: --right, --double
-application-use fill [hint] <text> --appName <app>    # Fill text into an element or current focus (uses clipboard paste)
-application-use sendkey <key> --appName <app>         # Send a key combination (e.g., cmd+v, enter, esc)
-application-use scroll <area> <dir> [px] --appName <app> # Scroll a specific UI block (up/down/left/right)
-application-use screenshot [path] --appName <app>     # Take a visual screenshot of the window
-application-use search [query]                        # Search for installed applications
-application-use close --appName <app>                 # Gracefully close the application
-application-use upgrade                               # Check for updates and automatically upgrade
+A separate cursor panel shows input feedback. It neither receives physical
+mouse input nor becomes the active window. It follows the target window's
+ordering and disappears when the target is lost, the session stops or the
+visual idle timer expires. This source distribution uses the library's
+procedural cursor drawing; extracted reference artwork is not included.
+
+### Existing Terminal shells
+
+First verify that an existing Terminal window has an idle shell prompt:
+
+```sh
+application-use snapshot --appName Terminal
+application-use fill "pwd" --appName Terminal
+# Read back the inserted command before executing it:
+application-use sendkey Return --appName Terminal
 ```
 
-## Agent Workflow (Recommended for AI)
+Terminal's shell receives `sky_key` keyboard input despite its non-settable AX
+text attributes. PID, window, focused control and explicit disabled/read-only
+checks remain enforced. Creating a new Terminal window can activate the app;
+that operation is outside this verified path.
 
-Instead of relying on fragile coordinate clicks (`x,y`), **application-use** implements an LLM-friendly snapshot-and-interact pattern:
+## Recognition and boundaries
 
-1. **Snapshot**: `application-use snapshot` queries the native Accessibility tree and layers Vision OCR data. It assigns a deterministic 2-3 letter hint (like `AA`, `JK`) to every clickable, editable, or readable element.
-2. **Understand**: The LLM parses the printed structural tree to understand the UI layout.
-   - `(+)` markers indicate pure text elements.
-   - `(*)` markers indicate elements discovered primarily via OCR.
-3. **Interact**: The LLM issues a command like `application-use click JK` or `application-use fill AB "admin"`. The CLI uses OS-level handles to instantly perform the action.
+OCR uses Apple Vision locally. Optional icon recognition accepts an existing
+CoreML `.mlpackage` or `.mlmodelc` via `APPLICATION_USE_MODEL`. No model is bundled
+or downloaded automatically. Without a model, snapshots include a warning and
+continue with AX/OCR; do not claim icon recognition succeeded. Model licenses
+are separate from the runtime's MIT license.
 
-## Security & Permissions
+There is no foreground mode or foreground fallback. Hidden/minimized apps,
+missing permissions, window raising, app launching/closing, right-click,
+desktop-region cropping, and app/window lifecycle shortcuts are refused.
+A third-party app may activate itself in response to an action; compatibility
+claims apply only to tested apps and observation intervals.
 
-Because `application-use` interacts natively with OS controls and visual outputs, it requires two macOS permissions on the first run:
+The private local session exits after ten minutes of inactivity.
+`session-stop` stops the tool session and cursor, not the target app.
+Normal authorization requirements still apply to sending, deleting, purchasing
+and other consequential actions.
 
-1. **Accessibility**: `System Settings > Privacy & Security > Accessibility` (to read the UI tree and inject clicks/keys)
-2. **Screen Recording**: `System Settings > Privacy & Security > Screen Recording` (required for Vision OCR and taking snapshots)
+## Verification
 
-If permissions are missing, the CLI will output specialized error prompts instructing the user to enable them.
+```sh
+make test-background
+```
 
-## Contributing
+This runs native background/cursor policy tests, Python adapter tests and
+fixture-monitor checks without driving user windows. Optional real AppKit
+acceptance and demo instructions are in
+[`scripts/application-use-tests/README.md`](scripts/application-use-tests/README.md).
+Historical local verification and the limits of those observations are in
+[`DEVLOG.md`](DEVLOG.md). This GitHub packaging update does not repeat the
+previously coordinated live Terminal test.
 
-Currently, `application-use` is designed for macOS. We welcome pull requests to add support for other operating systems (Windows, Linux, etc.).
+See [runtime details](docs/background-runtime.md) and
+[the agent skill](skills/application-use/SKILL.md).

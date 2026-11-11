@@ -1,5 +1,15 @@
 # Application-Use Project Standards
 
+## Background runtime
+
+The independent macOS background CLI lives in `background/` (Swift runtime)
+and `scripts/application-use/` (Python adapter). Read `background/PROVENANCE.md`
+and `docs/background-runtime.md` before changing it. Build with `make background`
+and check with `make test-background`. These commands are separate from the
+older Go/Swift CLI described below. Never add a foreground, clipboard, global
+pointer or focus-and-restore fallback to the background entrypoint. Keep its
+skill, documentation, tests and `DEVLOG.md` synchronized.
+
 ## Directory Structure
 
 ```

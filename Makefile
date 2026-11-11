@@ -1,6 +1,6 @@
 # Extract version from package.json
-VERSION := $(shell node -p "require('./package.json').version")
-LDFLAGS := -X 'application-use/internal/appuse.Version=$(VERSION)' -extldflags '-Wl,-no_warn_duplicate_libraries'
+VERSION = $(shell node -p "require('./package.json').version")
+LDFLAGS = -X 'application-use/internal/appuse.Version=$(VERSION)' -extldflags '-Wl,-no_warn_duplicate_libraries'
 
 # Build the Go application for specific architectures
 build-arm64:
@@ -39,3 +39,14 @@ help:
 	@echo "  make          Build the entire project"
 	@echo "  make clean    Remove build artifacts"
 	@echo "  make help     Show this help message"
+	@echo "  make background       Build the independent background CLI"
+	@echo "  make test-background  Run background policy and adapter checks"
+
+.PHONY: background test-background
+background:
+	sh scripts/build-background.sh
+
+test-background:
+	cd scripts/application-use && python3 -m unittest -v test_application_use.py
+	node --test scripts/application-use-tests/verification.test.mjs
+	swift test --package-path background
