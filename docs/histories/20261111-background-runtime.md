@@ -20,3 +20,7 @@ adapter tests passed and 4 fixture-monitor tests passed. Staged launcher help,
 shell syntax and diff whitespace checks passed. The prior live Terminal result
 is documented as historical evidence; no GUI acceptance was repeated for this
 source packaging task.
+
+Publication: commit `2291ad5` was pushed to `scut204/application-use` on `main`
+and confirmed through the GitHub API. No npm package or GitHub Release was
+published.

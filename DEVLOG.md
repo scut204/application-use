@@ -84,7 +84,7 @@
 - [x] Include upstream licenses and provenance; remove workstation-specific skill/model paths from the published entrypoint.
 - [x] Use procedural cursor drawing without redistributing extracted reference artwork or the optional icon model.
 - [x] Verify source-package build and relevant tests: release build, 25 native policy tests, 36 Python adapter tests and 4 monitor tests passed.
-- [ ] Synchronize remote and publish the reviewed source update.
+- [x] Synchronize remote and publish the reviewed source update: commit `2291ad5` pushed to `scut204/application-use` on `main`; GitHub API confirmed the exact commit.
 
 The earlier Day1/Day2 entries describe the original local implementation and
 its historical checks. Packaging checks below refer to this repository version.
@@ -93,5 +93,6 @@ Packaging verification completed on macOS arm64 with Swift 6.2.4. The staged
 launcher help and shell syntax checks pass. The build retains an upstream
 `nonisolated(unsafe)` compiler warning in the glyph renderer; it is not a build
 failure. No live GUI input or active local installation was changed by this
-packaging task. GitHub publication still requires an authenticated write path;
-HTTPS has no available credential and SSH authentication was rejected.
+packaging task. GitHub authentication was completed through the user-approved
+browser flow; the prepared source commit was pushed over HTTPS and verified
+through the GitHub API. No npm package or GitHub Release was published.
